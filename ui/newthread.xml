@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?>
+<imag>
+    <script>
+    <![CDATA[
+        var uid;
+        var fid;
+        var tid;
+        var pid;
+        var formhash='6094cb5b';
+        var uploadhash;
+        var noticeauthor;
+        var noticetrimstr;
+        var noticeauthormsg;
+        var isFaceShown = false;
+        var aids = [];
+        var BBS_HOME_URL = "http://bbs.weichunjie.cn"
+        function postThread() {
+			if (typeof tid == 'undefined') {
+       			sendNewThread();
+       		} else {
+       			sendPostReply();
+       		}
+        }
+
+        function sendNewThread() {
+        	if ($('subject_input').value == '') {
+        		$('subject_input').focus();
+        		alert('请输入帖子标题');
+        		return false;
+        	}
+        	if ($('message_textarea').value == '') {
+        		$('message_textarea').focus();
+        		alert('请输入帖子内容');
+        		return false;
+        	}
+        	if ($('message_textarea').value.length < 10) {
+        		$('message_textarea').focus();
+        		hint('帖子内容太短');
+        		return false;
+        	}
+       		if (!confirm('发帖|确定提交帖子？')) {
+       			return false;
+       		}
+        	var dlg = $page.waiting('发帖|正在提交，请稍候...');
+       		var url = BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=newthread&fid=' + fid + '&topicsubmit=yes';
+       		var formData = {'formhash': formhash,'wysiwyg': '1','subject': $('subject_input').value,'message': $('message_textarea').value};
+        	$http.post(url, formData, function(json) {
+        		dlg.close();
+                alert(formData['formhash']+'\n'+formData['subject']+'\n'+formData['message'] +'\n'+url+'\n'+json);
+        		var obj = JSON.parse(json);
+                alert(obj.Message.messageval);
+                if (obj.Message.messageval == 'post_newthread_succeed') {
+                	hint('发帖成功');
+        			$page.close(0, 'loadForum()');
+                } else  {
+        			alert('发帖失败|' + obj.Message.messagestr);
+                }
+        	}, function(error) {
+        		dlg.close();
+        		hint('发帖失败，网络错误~');
+        	});
+        }
+
+        function sendPostReply() {
+        	if ($('message_textarea').value == '') {
+        		$('message_textarea').focus();
+        		alert('请输入帖子内容');
+        		return false;
+        	}
+        	if ($('message_textarea').value.length < 10) {
+        		$('message_textarea').focus();
+        		alert('帖子内容太短');
+        		return false;
+        	}
+       		if (!confirm('回帖|确定提交回帖？')) {
+       			return false;
+       		}
+        	var dlg = $page.waiting('回帖|正在提交，请稍候...');
+       		var url = BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=sendreply&fid=' + fid +'&formhash=' + formhash + '&tid=' + tid + '&replysubmit=yes';
+       		var formData = {
+        		formhash: formhash,
+        		wysiwyg: '1',
+        		message: $('message_textarea').value,
+                usesig: '1'
+        	};
+            if (typeof pid != 'undefined') {
+                formData['reppid'] = pid;
+                formData['reppost'] = pid;
+            }
+            if (noticeauthor != null) {
+            	formData['noticeauthor'] = noticeauthor;
+            	formData['noticetrimstr'] = noticetrimstr;
+            	formData['noticeauthormsg'] = noticeauthormsg;
+            }
+       		for (var i = 0; i < aids.length; i++) { //添加附件
+       			var aid = aids[i];
+        		formData['attachnew[' + aid + '][description]'] = '';
+       		}
+        	$http.post(url, formData, function(json) {
+        		dlg.close();
+        		var obj = JSON.parse(json);
+                if (obj.Message.messageval == 'post_reply_succeed') {
+                	hint('回帖成功');
+        			$page.close(0, '$page.refresh()');
+                } else  {
+        			alert('回帖失败|' + obj.Message.messagestr);
+                }
+        	}, function(error) {
+        		dlg.close();
+        		hint('回帖失败，网络错误~');
+        	});
+        }
+
+
+        function getFileName(path) {
+            return path.substring(path.lastIndexOf("/") + 1) ;
+        }
+
+        function getFileExt(path) {
+            return path.substr(path.lastIndexOf('.') + 1).toLowerCase();
+        }
+
+        function uploadImage(path) {
+        	var item = $C('<grid-item><item><icon id="image_icon" src="' + path + '"></icon></item></grid-item>');
+        	$('image_grid').add(item);
+        	$('image_file').value = path;
+        	$('hash').value = uploadhash;
+        	$('uid').value = uid;
+        	$('Filename').value = getFileName(path);
+        	$('filetype').value = '.' + getFileExt(path);
+        	$('upload_form').action = BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=forumupload&fid=' + fid;
+        	$('upload_form').submit(function(data) {
+       			aids.push(data);
+        	}, function(error) {
+        		hint('图片上传失败~');
+        	});
+        }
+
+		function doCamera() {
+		    $phone.camera({
+		        success: function(path) {
+		     	    uploadImage(path);
+		        }
+		    });
+		}
+
+		function doBrowseImage() {
+			$page.browseImage({
+				complete: function(path) {
+					uploadImage(path);
+				}
+			});
+		}
+
+        function showFaceView() {
+        	if (!isFaceShown) {
+                $('face_row').css('display', 'block');
+                $('face_grid').css('display', 'block');
+                $('face_col').css('background', '#D8D8D8,#D8D8D8');
+        		isFaceShown = true;
+        	} else {
+                $('face_row').css('display', 'none');
+                $('face_grid').css('display', 'none');
+                $('face_col').css('background', 'null,#D8D8D8');
+        		isFaceShown = false;
+        	}
+        }
+
+        function insertFace(face) {
+            var position = $('message_textarea').getSelectionStart();
+            $('message_textarea').insert(position, face);
+        }
+
+        function loadUploadHash() {
+        	$http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=checkpost', function(json) {
+        		var obj = JSON.parse(json);
+        		uploadhash = obj.Variables.allowperm.uploadhash;
+        	});
+        }
+
+        function loadNoticeInfo() {
+        	var url = BBS_HOME_URL + '/forum.php?mod=post&action=reply&fid=' + fid + '&tid=' + tid + '&repquote=' + pid + '&&infloat=yes&handlekey=reply&inajax=1&ajaxtarget=fwin_content_reply';
+        	$http.get(url, function(data) {
+                var regex = /<input\s+type="hidden"\s+name="noticeauthor"\s+value="(\S+)"\s*\/>\s*<input\s+type="hidden"\s+name="noticetrimstr"\s+value="([^"]+)"\s*\/>\s*<input\s+type="hidden"\s+name="noticeauthormsg"\s+value="([^"]+)"\s*\/>/mg;
+        		var group;
+                if ((group = regex.exec(data)) != null)  {
+                    noticeauthor = group[1];
+                    noticetrimstr = group[2];
+                    noticeauthormsg = group[3];
+                }
+            });
+        }
+
+        $page.onload = function() {
+            fid = $param['fid'];
+            tid = $param['tid'];
+            formhash = $param['formhash'];
+            var fname = decodeURIComponent($param['fname']);
+            $('fname_label').text = fname;
+
+        	var storage = $phone.localStorage();
+        	uid = storage.getItem('user_uid');
+            alert(fid+' '+tid +' '+fname+' '+uid+' '+formhash);
+            if (typeof tid == 'undefined') {
+                $('title_label').text = '发帖';
+            } else {
+                $('title_label').text = '回帖';
+                $('subject_label').text = 'RE: ' + decodeURIComponent($param['subject']);
+                $('reply_item').css('display', 'block');
+                $('subject_item').css('display', 'none');
+                pid = $param['pid'];
+                if (typeof pid != 'undefined') {
+                    loadNoticeInfo();
+                }
+            }
+        	loadUploadHash();
+        }
+    ]]>
+    </script>
+    <page include="common.js" style="background:white">
+        <title style="background:#303537">
+            <left>
+                <button type="icon" role="back" icon="btn_back_normal.png,btn_back_pressed.png" style="background:null,null;width:35;height:40" onclick="$page.close();"/>
+                <label id="fname_label" style="font-size:16;color:#FFFFFF;width:100" maxlines="1" onclick="$page.close();"></label>
+            </left>
+            <center>
+                <label id="title_label"></label>
+            </center>
+            <right>
+                <button style="width:60" onclick="postThread();">提交</button>
+            </right>
+        </title>
+        <content>
+            <list>
+                <item id="reply_item" style="display:none;background:#E5E5E5,#E5E5E5">
+                    <row style="padding:5 10"><label id="subject_label"></label></row>
+                </item>
+                <item id="subject_item" selectable="false">
+                    <row><input id="subject_input" name="subject" style="background:null,null;font-size:16" type="text" placeholder="输入标题"/></row>
+                </item>
+                <item selectable="false">
+                    <row><textarea id="message_textarea" name="message" style="background:null,null;font-size:16" rows="10" maxrows="10" placeholder="输入内容"></textarea></row>
+                </item>
+            </list>
+            <form id="upload_form" multipart="true" progress="上传图片|正在上传图片...">
+                <input type="hidden" id="Filename" name="Filename"/>
+                <input type="hidden" id="filetype" name="filetype"/>
+                <input type="hidden" id="hash" name="hash"/>
+                <input type="hidden" id="uid" name="uid" />
+                <input type="file" id="image_file" name="Filedata" style="display:none"/>
+                <grid id="image_grid" cols="3">
+                </grid>
+            </form>
+        </content>
+        <footer style="background:#EFEFF4">
+            <row id="face_row" style="background:#C5C5C5;height:1;display:none"></row>
+            <grid id="face_grid" cols="6" style="display:none;margin-top:10">
+                <item icon="face_smile.png" onclick="insertFace(':)');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_sad.png" onclick="insertFace(':(');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_biggrin.png" onclick="insertFace(':D');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_cry.png" onclick="insertFace(':\'(');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_huffy.png" onclick="insertFace(':@');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_shocked.png" onclick="insertFace(':o');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_tongue.png" onclick="insertFace(':P');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_shy.png" onclick="insertFace(':$');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_titter.png" onclick="insertFace(';P');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_sweat.png" onclick="insertFace(':L');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_mad.png" onclick="insertFace(':Q');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_lol.png" onclick="insertFace(':lol');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_loveliness.png" onclick="insertFace(':loveliness:');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_funk.png" onclick="insertFace(':funk:');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_curse.png" onclick="insertFace(':curse:');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_dizzy.png" onclick="insertFace(':dizzy:');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_shutup.png" onclick="insertFace(':shutup:');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_sleepy.png" onclick="insertFace(':sleepy:');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_hug.png" onclick="insertFace(':hug:');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_victory.png" onclick="insertFace(':victory:');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_kiss.png" onclick="insertFace(':kiss:');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_handshake.png" onclick="insertFace(':handshake');"></item>
+                <item style="background:#EFEFF4,#EFEFF4;" icon="face_call.png" onclick="insertFace(':call:');"></item>
+            </grid>
+            <row style="background:#C5C5C5;height:1"></row>
+            <list type="toolbar" style="background:#EFEFF4">
+                <item>
+                    <col id="face_col" style="background:null,#D8D8D8;padding:5 0;" onclick="showFaceView()">
+                        <row><icon src="write_btn_face.png" style="align:center;width:30;height:30"/></row>
+                    </col>
+                    <col style="background:null,#D8D8D8;padding:5 0;" onclick="doBrowseImage()">
+                        <row><icon src="write_btn_pic.png" style="align:center;width:30;height:30"/></row>
+                    </col>
+                    <col style="background:null,#D8D8D8;padding:5 0;" onclick="doCamera()">
+                        <row><icon src="write_btn_photo.png" style="align:center;width:30;height:30"/></row>
+                    </col>
+                </item>
+            </list>
+        </footer>
+    </page>
+</imag>

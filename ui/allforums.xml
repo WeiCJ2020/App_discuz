@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<imag>
+    <script>
+    <![CDATA[
+        var forumlist;
+        var BBS_HOME_URL = "http://bbs.weichunjie.cn"
+        function loadForumnav() {
+            $http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=forumnav', function(json) {
+                var storage = $phone.localStorage();
+                storage.setItem('forumnav_json', json);
+        		loadAllforums();
+            });
+        }
+        
+        function loadForumindex() {
+            $http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=forumindex', function(json) {
+                var storage = $phone.localStorage();
+                storage.setItem('forumindex_json', json);
+        		loadAllforums(); 
+            });
+        }
+        
+        function initContent(forums, fid) {
+            var contentXml = '<content id="' + fid + '_content" draggable="true"><list style="divider-border:1 #D9D9D9">';
+            for (var i = 0; i < forums.length; i++) {
+                var forum = forums[i];
+                if (forum.type == 'forum' && forum.fup == fid) {
+       				var tempForum = getForum(forum.fid);
+                	contentXml += '<item style="background:#FFFFFF,#D7D7D7" onclick="$page.open(\'forum.xml?fid=' + forum.fid + '&amp;fname=' + encodeURIComponent(forum.name) + '\')">' +
+                    	'<row><label style="color:#4A4A4A">' + cdata(forum.name) + '</label>' +
+                        '<label style="align:right;color:#9E9E9E;font-size:12">' + tempForum.threads + '/' + tempForum.posts + '</label></row>' + 
+                    '</item>';
+                }
+            }
+            contentXml += '</list></content>';
+            $('contents').add($C(contentXml));
+        }
+        
+        function getForum(fid) {
+        	for (var i = 0; i < forumlist.length; i++) {
+        		var forum = forumlist[i];
+        		if (forum.fid == fid) {
+                    return forum;
+        		}
+        	}
+        }
+        
+        function loadAllforums() {
+        	var storage = $phone.localStorage();
+        	var forumnavJson = storage.getItem('forumnav_json');
+        	if (forumnavJson != null) {
+                var obj = JSON.parse(forumnavJson);
+                var forumindexJson = storage.getItem('forumindex_json');
+       			if (forumindexJson != null) {
+       				var fobj = JSON.parse(forumindexJson);
+       				forumlist = fobj.Variables.forumlist;
+                } else {
+                    loadForumindex();
+                }
+                var fobj = JSON.parse(forumindexJson);
+                var forums = obj.Variables.forums;
+                for (var i = 0; i < forums.length; i++) {
+                    var forum = forums[i];
+                    if (forum.type == 'group') {
+                        var item = $C('<tabbar-item><item onclick="$(\'contents\').showContent(\'' + forum.fid + '_content\');"><label style="color:#666666">' + cdata(forum.name) + '</label></item></tabbar-item>');
+                        $('forum_tabbar').add(item);
+                        initContent(forums, forum.fid);
+                    }
+                }
+            } else {
+                loadForumnav();
+            }
+       		$('contents').showContent(0);
+        }
+        
+        $page.onload = function() {
+            loadAllforums();
+        }
+    ]]>
+    </script>
+    <page include="common.js" style="background:#EFEFF4">
+        <title style="background:#303537">
+            <left>
+                <button type="icon" role="back" icon="btn_back_normal.png,btn_back_pressed.png" style="background:null,null;width:35;height:40" onclick="$page.close('$(\'slidingmenu\').open()');"/>
+            </left>
+            <center>
+                <label id="fname_label">所有版块</label>
+            </center>
+        </title>
+        <header style="background:#F3F3F3">
+            <tabbar id="forum_tabbar" shownum="3" style="background:#F3F3F3"></tabbar>
+            <row style="background:#DDDDDD;height:1"></row>
+        </header>
+        <contents id="contents">
+        </contents>
+    </page>
+</imag>

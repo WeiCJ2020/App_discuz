@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<imag>
+    <script>
+    <![CDATA[
+        var fid;
+        var fname;
+        var formhash;
+        var page = 2;
+        var hasMorePage = true;
+        var BBS_HOME_URL = "http://bbs.weichunjie.cn"
+        
+        function getThreadListJson(obj) {
+			formhash = obj.Variables.formhash;
+        	var listjson = {items:[]};
+            var threadlist = obj.Variables.forum_threadlist;
+            for (var i = 0; i < threadlist.length; i++) {
+            	var thread = threadlist[i];
+                var itemjson = {
+                    template: 1,
+                    onclick: '$page.open("thread.xml?tid=' + thread.tid + '&fid=' + fid + '&fname=' + encodeURIComponent(fname) + '&formhash=' + formhash + '")',
+                   	widgets: {
+                        subject: {text: thread.subject},
+                        author: {text: thread.author},
+                        dateline: {text: thread.dateline.replace('&nbsp;', ' ')},
+                  		views: {text: thread.views},
+                    	replies: {text: thread.replies}
+                	}
+                };
+        		if (thread.fid != null) {
+                    itemjson.widgets.top = {text: '顶 '};
+                } else {
+                    itemjson.widgets.top = {text: ''};
+                }
+             	listjson.items.push(itemjson);
+            }
+            return listjson;
+        }
+        
+        function initFourm(obj) {
+        	fname = obj.Variables.forum.name;
+        	$('fname_label').text = fname;
+            if (obj.Variables.forum_threadlist.length == 0) {
+                $('thread_list').update({items:[{template:2}]});
+            } else {
+                var listjson = getThreadListJson(obj);
+                $('thread_list').update(listjson);
+            }
+        
+        	var pageCount = Math.ceil(parseInt(obj.Variables.forum.threads) / parseInt(obj.Variables.tpp));
+        	if (pageCount > 1) {
+                $('thread_content').showBottom();
+            } else {
+                $('thread_content').hideBottom();
+            }
+        }
+        
+        function loadForum() {
+            var storage = $phone.localStorage();
+            var forumJson = storage.getItem('forum_' + fid + '_json');
+            if (forumJson != null) {
+            	initFourm(JSON.parse(forumJson));
+            }
+            hasMorePage = true;    
+            $('title_progress').css('display', 'block');
+            $http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=toplist&fid=' + fid, function(topjson) {
+                var topObj = JSON.parse(topjson);
+                $http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=3&module=forumdisplay&fid=' + fid, function(json) {
+                    $('title_progress').css('display', 'none');
+                    var obj = JSON.parse(json);
+                    var toplist = topObj.Variables.forum_threadlist;
+                    for (var i = toplist.length - 1; i >= 0; i--) {
+                        var thread = toplist[i];
+                        if (thread.fid == fid) {
+                        	obj.Variables.forum_threadlist.unshift(thread);
+                        }
+                    }
+                    initFourm(obj);
+                    $('thread_content').hideTop();
+                    storage.setItem('forum_' + fid + '_json', JSON.stringify(obj));
+                    hint('数据已更新');
+                }, function(error) {
+                    hint('网络错误，请稍后重试~');
+                    $('header').css('display', 'none');
+                    $('thread_content').hideTop();
+                });
+            }, function(error) {
+                hint('网络错误，请稍后重试~');
+                $('header').css('display', 'none');
+                $('thread_content').hideTop();
+            });
+        }
+        
+        
+        function loadMoreThread() {
+            if (!hasMorePage) {
+                return;
+            }
+            $('thread_progress').css('display', 'block');
+            $http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=3&module=forumdisplay&fid=' + fid + '&page=' + page, function(json) {
+                $('thread_progress').css('display', 'none');
+                var obj = JSON.parse(json);
+                var listjson = getThreadListJson(obj)
+        		$('thread_list').addMore(listjson);
+        		
+                var pageCount = Math.ceil(parseInt(obj.Variables.forum.threads) / parseInt(obj.Variables.tpp));
+                if (page >= pageCount) {
+                    $('thread_content').hideBottom();
+                    hasMorePage = false;
+                }
+        		page++;
+            }, function(error) {
+                hint('网络错误，请稍后重试~');
+                $('header').css('display', 'block');
+                $('thread_content').hideTop();
+            });
+        }
+        
+        //visitCount用来统计常去版块
+        function addVisitCount(fid) {
+            var storage = $phone.sessionStorage();
+            var visitCountStr = storage.getItem('visit_count_' + fid);
+            if (visitCountStr == null) {
+                storage.setItem('visit_count_' + fid, '0');
+            } else {
+                var visitCount = parseInt(visitCountStr) + 1
+                storage.setItem('visit_count_' + fid, visitCount);
+            }
+        }
+        
+        function newthread() {
+            var storage = $phone.localStorage();
+            var uid = storage.getItem('user_uid');
+            if (uid == null) {
+                $page.open('login.xml');
+            } else {
+                $page.open('newthread.xml?fid=' + fid + '&fname=' + encodeURIComponent(fname) + '&formhash=' + formhash);
+            }
+        }
+        
+        function favforum() {
+            var url = BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=favforum&id=' + fid + '&handlekey=favoriteforum&formhash=' + formhash + '&infloat=yes&handlekey=a_favorite&inajax=1&ajaxtarget=fwin_content_a_favorite';
+            $http.get(url, function(json) {
+                var obj = JSON.parse(json);
+                if (obj.Message.messageval == 'favorite_do_success') {
+					alert('版块收藏成功');
+                } else {
+                    hint(obj.Message.messagestr);
+                }
+            }, function(error) {
+                hint('版块收藏失败，网络错误!~');
+            });
+        }
+        
+        $page.onload = function() {
+        	fid = $param['fid'];
+            fname = $param['fname'];
+            if (fname != null) {
+       			fname = decodeURIComponent(fname);
+        		$('fname_label').text = fname;
+            }
+            $('thread_list').update({items:[{template:0}]});
+            loadForum();
+            addVisitCount(fid);
+        }
+    ]]>
+    </script>
+    <page include="common.js" style="background:#EBEBEB">
+        <title style="background:#303537">
+            <left>
+                <button type="icon" role="back" icon="btn_back_normal.png,btn_back_pressed.png" style="background:null,null" onclick="$page.close();"/>
+            </left>
+            <center>
+                <label id="fname_label"></label><progress id="title_progress" style="margin-left:5" type="white"/>
+            </center>
+            <right>
+                <button style="background:write_normal.png,write_pressed.png;width:30;height:30" onclick="newthread()"></button>
+                <button style="background:favor_normal.png,favor_pressed.png;width:30;height:30;margin:0 10" onclick="favforum()"></button>
+            </right>
+        </title>
+        <content id="thread_content" draggable="true" ondragdown="loadForum();" ondragup="loadMoreThread()">
+            <list id="thread_list" reuse="true">
+                <item style="background:#FFFFFF,#C2C2C2">
+                    <row><progress style="align:center"/><label style="align:center;color:#4A4A4A;font-size:14;margin-left:5">正在加载...</label></row>
+                </item>
+                <item style="background:#FFFFFF,#D7D7D7;">
+                    <row style="padding:0 5">
+                        <label style="color:red;font-size:12;" reusekey="top"></label>
+                        <label style="color:#4A4A4A;font-size:16" reusekey="subject"></label>
+                    </row>
+                    <row style="margin-top:5;padding:0 5">
+                        <label style="color:#9D9D9D;font-size:12;" reusekey="author"></label>
+                        <label style="color:#999999;font-size:12;margin-left:10" reusekey="dateline"></label>
+                        <icon style="align:right;margin-bottom:5" src="ic_clicked.png"/>
+                        <label style="color:#999999;font-size:12;align:right;margin-left:5;" reusekey="views"></label>
+                        <icon style="align:right;margin-left:10;margin-bottom:5" src="ic_reply.png"/>
+                        <label style="color:#999999;font-size:12;align:right;margin-left:5;" reusekey="replies"></label>
+                    </row>
+                </item>
+                <item style="background:#FFFFFF,#C2C2C2">
+                    <row><label style="color:#4A4A4A;font-size:14;align:center">暂无帖子~</label></row>
+                </item>
+            </list>
+            <bottom style="display:none">
+                <row style="padding:10;background:#FFFFFF,#D7D7D7;" onclick="loadMoreThread();">
+                    <progress id="thread_progress" style="align:center;display:none"/>
+                    <label style="align:center;margin-left:5" id="thread_more_label">更多帖子..</label>
+                </row>
+            </bottom>
+        </content>
+    </page>
+</imag>

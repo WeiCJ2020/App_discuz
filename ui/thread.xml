@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<imag>
+    <script>
+    <![CDATA[
+        var fid;
+        var tid;
+        var fname;
+        var formhash='e945eb82';
+        var subject;
+        var page = 1;
+        var hasMorePage = false;
+        var BBS_HOME_URL = "http://bbs.weichunjie.cn"
+        function dealhtml(html) {
+            return html.replace(/'/g, "\\'").replace(/\\\\'/g, "\\\\\\'");
+        }
+
+        function downloadAttach(url) {
+        	$http.download(url);
+        }
+
+        function replyThread() {
+            var storage = $phone.localStorage();
+            var uid = storage.getItem('user_uid');
+            if (uid == null) {
+                $page.open('login.xml');
+            } else {
+                $page.open('newthread.xml?fid=' + fid + '&tid=' + tid + '&fname=' + encodeURIComponent(fname) + '&formhash=' + formhash + '&subject=' + encodeURIComponent(subject));
+            }
+        }
+
+        function replyPost(pid) {
+            var storage = $phone.localStorage();
+            var uid = storage.getItem('user_uid');
+            if (uid == null) {
+                $page.open('login.xml');
+            } else {
+                $page.open('newthread.xml?fid=' + fid + '&tid=' + tid + '&pid=' + pid + '&fname=' + encodeURIComponent(fname) + '&formhash=' + formhash + '&subject=' + encodeURIComponent(subject));
+            }
+        }
+
+        function loadMorePost() {
+            if (!hasMorePage) {
+                return;
+            }
+       		$('thread_progress').css('display', '');
+        	$http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=viewthread&tid=' + tid + '&page=' + (page + 1), function(json) {
+       			$('thread_progress').css('display', 'none');
+       			var obj = JSON.parse(json);
+        		loadPosts(obj);
+       			var pageCount = Math.ceil((parseInt(obj.Variables.thread.replies) + 1) / parseInt(obj.Variables.ppp));
+                if (page >= pageCount) {
+                    $('thread_content').hideBottom();
+                    hasMorePage = false;
+                }
+        		page++;
+       		});
+        }
+
+        function loadPosts(obj) {
+        	var postlist = obj.Variables.postlist;
+            var str = JSON.stringify(postlist);
+            reply1 = postlist[1];
+            alert(str+'\n\n'+reply1.author);
+            str1 = reply1.author+'\n'+reply1.dateline+'\n'+reply1.message;
+            changeLabel('reply1',str1);
+           	var html = '';
+            if (page == 1 && postlist.length <= 1) {
+        		html += '<div class="post_no">暂无回帖~</div>';
+            } else {
+        		var start = (page == 1) ? 1 : 0;
+        		for (var i = start; i < postlist.length; i++) {
+                    var post = postlist[i];
+                    html += '<div class="post_info">' +
+                        '<div class="post_head"><img src="' + BBS_HOME_URL + '/uc_server/avatar.php?uid=' + post.authorid + '&size=middle" style="width:50;height:50"/></div>' +
+                        '<div class="post_author">' + post.author + '</div>' +
+                        '<div class="post_dateline">' + post.dateline + '</div>' +
+                        '<div class="reply_btn"><a href="javascript:void(0)" onclick="replyPost(' + post.pid + ')">回复</a></div>' +
+                        '</div>';
+                    html += '<div class="post_content">' + post.message;
+
+                    html += '<div class="post_attach">';
+                    for (var aid in post.attachments) {
+                        var attachment = post.attachments[aid];
+                        var attachurl = BBS_HOME_URL + '/' + attachment.url + attachment.attachment;
+                        if (attachment.ext == 'png' || attachment.ext == 'jpg' || attachment.ext == 'gif') {
+                            html += '<div class="post_attach_name"><a href="' + attachurl + '">' + attachment.filename + '</a></div>';
+                            html += '<div class="post_attach_image"><img src="' + attachurl + '" alt="' + attachment.imgalt + '" style="max-width:200px"/></div>';
+                        } else {
+                            html += '<div class="post_attach_name"><a href="javascript:void(0)" onclick="downloadAttach(\'' + attachurl + '\')">' + attachment.filename + '</a></div>';
+                        }
+                    }
+                    html += '</div></div>';
+                }
+                html = html.replace(/<a\s+href="\S+forum.php\?mod=redirect&amp;goto=findpost\S+"\s+target="_blank"><font\s+color="#999999">([^<]+)<\/font><\/a>/g, '<font color="#999999">$1</font>');
+            }
+            var script = "var div = document.createElement('div');" +
+       			"div.innerHTML = '" + dealhtml(html) + "';" +
+       			"document.getElementById('thread_posts').appendChild(div);";
+            $('thread_web').exec(script);
+
+       		var pageCount = Math.ceil((parseInt(obj.Variables.thread.replies) + 1) / parseInt(obj.Variables.ppp));
+        	if (pageCount > 1) {
+                $('thread_content').showBottom();
+       	        hasMorePage = true;
+            } else {
+                $('thread_content').hideBottom();
+       	        hasMorePage = false;
+            }
+        }
+
+        function loadThread(reload) {
+       		if (!reload) {
+       			$('header').css('display', '');
+       		}
+       		$http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=viewthread&tid=' + tid, function(json) {
+       			$('header').css('display', 'none');
+       			var obj = JSON.parse(json);
+       			if (obj.Variables.postlist.length == 0) {
+       				hint('帖子不存在或已被删除');
+       				$page.close(0, 'loadForum()');
+       				return;
+       			}
+                var title = obj.Variables.thread.subject;
+                subject = title;
+                content = obj.Variables.postlist[0].message;
+                author = obj.Variables.thread.author;
+                var authorid = obj.Variables.thread.authorid;
+                var headsrc = BBS_HOME_URL + '/uc_server/avatar.php?uid=' + obj.Variables.thread.authorid + '&size=middle';
+                var dateline = obj.Variables.postlist[0].dateline;
+                var pid = obj.Variables.postlist[0].pid;
+                changeLabel('author1',author);
+                changeLabel('subject1',subject);
+                changeLabel('content1',content);
+                loadPosts(obj);
+
+       		}, function(error) {
+                hint('网络错误，请稍后重试~');
+                $('header').css('display', 'none');
+                $('thread_content').hideTop();
+            });
+        }
+
+        //visitCount用来统计常去版块
+        function addVisitCount(fid) {
+            var storage = $phone.sessionStorage();
+            var visitCountStr = storage.getItem('visit_count_' + fid);
+            if (visitCountStr == null) {
+                storage.setItem('visit_count_' + fid, '0');
+            } else {
+                var visitCount = parseInt(visitCountStr) + 1;
+                storage.setItem('visit_count_' + fid, visitCount);
+            }
+        }
+
+        function favthread() {
+            var url = BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=favthread&id=' + tid + '&inajax=1';
+            $http.post(url, {
+                favoritesubmit: 'true',
+                favoritesubmit_btn: 'true',
+                formhash: formhash,
+                handlekey: 'k_favorite',
+                description: ''
+            }, function(json) {
+                if (json.indexOf('{"Version"') == -1) {
+                    return;
+                }
+                var obj = JSON.parse(json);
+                if (obj.Message.messageval == 'favorite_do_success') {
+					alert('帖子收藏成功');
+                } else {
+                    hint(obj.Message.messagestr);
+                }
+            }, function(error) {
+                hint('帖子收藏失败，网络错误!~');
+            });
+        }
+
+        $page.onload = function() {
+            tid = $param['tid'];
+            fid = $param['fid'];
+            fname = decodeURIComponent($param['fname']);
+            formhash = $param['formhash'];
+            $('fname_label').text = fname;
+        	loadThread();
+            addVisitCount(fid);
+        }
+        function downloadAttach(url) {
+    		$imag.exec('downloadAttach("' + url + '")');
+    	}
+
+    	function replyPost(pid) {
+    		$imag.exec('replyPost("' + pid + '")');
+    	}
+        function changeLabel(id,purity) {
+            var label = $(id);
+            label.text = purity;
+        }
+    ]]>
+    </script>
+    <page include="common.js" style="background:#F5F5F5">
+        <p>first</p>
+        <title style="background:#303537">
+            <left>
+                <button role="back" icon="btn_back_normal.png,btn_back_pressed.png" style="background:null,null" onclick="$page.close();"/>
+                <label id="fname_label" style="font-size:16;color:#FFFFFF" onclick="$page.close();"></label>
+            </left>
+            <center>
+            </center>
+            <right>
+                <button style="background:favor_normal.png,favor_pressed.png;width:30;height:30;margin:0 10" onclick="favthread()"></button>
+            </right>
+        </title>
+        <header id="header" style="dislay:none">
+            <row style="padding:10"><progress id="progress" style="align:center"/><label style="align:center;margin-left:10">正在加载...</label></row>
+        </header>
+
+        <content id="thread_content" draggable="true" ondragup="loadMorePost()">
+            <label style="align:center;margin-left:5;font-size:16" id="subject1"></label>
+            <label style="align:center;margin-left:5;font-size:16" id="author1"></label>
+            <label style="align:center;margin-left:5;font-size:16" id="content1"></label>
+            <label style="align:center;margin-left:5;font-size:16" id="reply1"></label>
+            <bottom style="display:display">
+                <row style="padding:10;background:#FFFFFF,#D7D7D7;" onclick="loadMorePost();">
+                    <progress id="thread_progress" style="align:center;display:none"/>
+                    <label style="align:center;margin-left:5;font-size:16" id="thread_more_label">更多回帖..</label>
+                </row>
+            </bottom>
+        </content>
+        <footer>
+            <row style="background:#C5C5C5;height:1"></row>
+            <list type="toolbar" style="background:#FAFAFA">
+                <item style="col-width:46,*;padding:5 8">
+                    <col>
+                        <icon src="comment_write_icon.png" style="width:35;height:35" onclick="replyThread();"/>
+                    </col>
+                    <col onclick="replyThread();">
+                        <row style="background:comment_write_input_bg_normal.png 10 10,comment_write_input_bg_pressed.png 10 10;padding:5 10;height:35" onclick="replyThread();"><label style="font-size:14;color:gray">回复：</label></row>
+                    </col>
+                </item>
+            </list>
+        </footer>
+    </page>
+</imag>

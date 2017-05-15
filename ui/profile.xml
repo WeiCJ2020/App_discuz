@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="utf-8"?>
+<imag>
+    <script>
+    <![CDATA[    
+        var BBS_HOME_URL = "http://bbs.weichunjie.cn"
+        function dateToTime(dateTime) { 
+            var date = new Date(parseInt(dateTime) * 1000);
+            return date.format("MM-dd hh:mm"); 	
+        }
+        
+        function showMyThread() {
+            $('mythread_label').css('color', '#2873C2');
+            $('myreply_label').css('color', '#636363');
+            $('mymessage_label').css('color', '#636363');
+            $('mythread_row').css('display', 'block');
+            $('myreply_row').css('display', 'hidden');
+            $('mymessage_row').css('display', 'hidden');
+            $('contents').showContent(0);
+        }
+        
+        function showMyReply() {
+            $('mythread_label').css('color', '#636363');
+            $('myreply_label').css('color', '#2873C2');
+            $('mymessage_label').css('color', '#636363');
+            $('mythread_row').css('display', 'hidden');
+            $('myreply_row').css('display', 'block');
+            $('mymessage_row').css('display', 'hidden');
+            $('contents').showContent(1);
+        }
+        
+        function showMyMessage() {
+            $('mythread_label').css('color', '#636363');
+            $('myreply_label').css('color', '#636363');
+            $('mymessage_label').css('color', '#2873C2');
+            $('mythread_row').css('display', 'hidden');
+            $('myreply_row').css('display', 'hidden');            
+        	$('mymessage_row').css('display', 'block');
+            $('contents').showContent(2);
+        }
+        
+        function logout() {
+            if (!confirm('退出|确定退出登录?')) {
+        		return;
+            }
+            var dlg = $page.waiting('退出|正在退出登录..');
+        	var storage = $phone.localStorage();
+        	var formhash = storage.getItem('user_formhash');
+            var logoutUrl = BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=login&action=logout&formhash=' + formhash;
+            $http.get(logoutUrl, function(data) {
+                dlg.close();
+                var obj = JSON.parse(data);
+                if (obj.Message.messageval == 'location_logout_succeed_mobile') {
+                    storage.removeItem('user_uid');
+                    storage.removeItem('user_username');
+                    storage.removeItem('user_formhash');
+                    storage.removeItem('user_profile_json');
+                    hint('账号退出成功');
+                    $page.close();
+                }
+            }, function(error) {
+                dlg.close();
+            });
+        }
+        
+        function initUserProfile(json) {
+            var obj = JSON.parse(json);
+            if (typeof obj.Variables.space.uid == 'undefined') {
+                $page.open('login.xml', {taget:'_self'});
+            } else {
+                $('user_head_img').src = BBS_HOME_URL + '/uc_server/avatar.php?uid=' + obj.Variables.space.uid + '&size=middle';
+                $('user_name_label').text = obj.Variables.space.username;
+                $('user_group_label').text = obj.Variables.space.group.grouptitle;
+        		
+            	$('regdate_label').text = '注册时间：' + obj.Variables.space.regdate;
+        		$('credits_label').text = '发帖：' + obj.Variables.space.threads +
+                        '   回帖：' + (parseInt(obj.Variables.space.posts) - parseInt(obj.Variables.space.threads)).toString() +
+        				'   积分：' + obj.Variables.space.credits;
+        		var text = '';
+        		var i = 0;
+        		for (var key in obj.Variables.extcredits) {
+        			var extcredit = obj.Variables.extcredits[key];
+       				var value = obj.Variables.space['extcredits' + key];
+        			if (i % 3 == 0) {
+                        if (i != 0) {
+                            text += '\n';
+                        }
+                    } else {
+                        text += '   ';
+                    }
+        			text += extcredit.title + '：' + value;
+        			i++;
+        		}
+                $('extcredits_label').text = text;
+        	}
+        }
+        
+        function initMyThread(json) {
+            var obj = JSON.parse(json);
+            if (obj.Variables.data == null || obj.Variables.data.length == 0) {
+                $('mythread_list').update({items:[{template:3}]});
+            } else {
+                var listjson = {items:[]};
+                for (var i = 0; i < obj.Variables.data.length; i++) {
+                    var thread = obj.Variables.data[i];
+                    var itemjson = {
+                        template: 1,
+                        onclick: '$page.open("thread.xml?tid=' + thread.tid + '&fname=' + encodeURIComponent('我的帖子') + '")',
+                        widgets: {
+                            subject: {text: thread.subject},
+                            lastposter: {text: thread.lastposter},
+                            lastpost: {text: thread.lastpost.replace('&nbsp;', ' ')},
+                            views: {text: thread.views},
+                            replies: {text: thread.replies}
+                        }
+                    };
+                    listjson.items.push(itemjson);
+                }
+            	$('mythread_list').update(listjson);
+            }
+        }
+        
+        function loadMyThread(useCache) {                
+            var storage = $phone.localStorage();
+            if (useCache) {
+                var mythreadJson = storage.getItem('mythread_json');
+                if (mythreadJson != null) {
+                    initMyThread(mythreadJson);
+                }
+            }
+            $http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=mythread&type=thread', function(json) {
+                storage.setItem('mythread_json', json);
+                initMyThread(json);
+                $('mythread_content').hideTop();
+            }, function(error) {
+                hint('网络错误，请稍后重试~');
+                $('mythread_content').hideTop();
+                $('mythread_list').update({items:[{template:2}]});
+            });
+        }
+        
+        function initMyReply(json) {
+            var obj = JSON.parse(json);
+            if (obj.Variables.data == null || obj.Variables.data.length == 0) {
+                $('myreply_list').update({items:[{template:3}]});
+            } else {
+                var listjson = {items:[]};
+                for (var i = 0; i < obj.Variables.data.length; i++) {
+                    var thread = obj.Variables.data[i];
+                    if (thread.displayorder == -1) {
+                        continue;
+                    }
+                    var itemjson = {
+                        template: 1,
+                        onclick: '$page.open("thread.xml?tid=' + thread.tid + '&fname=' + encodeURIComponent('我的回复') + '")',
+                        widgets: {
+                            subject: {text: thread.subject},
+                            lastposter: {text: thread.lastposter},
+                            lastpost: {text: thread.lastpost.replace('&nbsp;', ' ')},
+                            views: {text: thread.views},
+                            replies: {text: thread.replies}
+                        }
+                    };
+                    listjson.items.push(itemjson);
+                }
+            	$('myreply_list').update(listjson);
+            }
+        }
+        
+        function loadMyReply(useCache) {                
+            var storage = $phone.localStorage();
+            if (useCache) {
+                var myreplyJson = storage.getItem('myreply_json');
+                if (myreplyJson != null) {
+                    initMyReply(myreplyJson);
+                }
+            }
+            $http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=mythread&type=reply', function(json) {
+                storage.setItem('myreply_json', json);
+                initMyReply(json);
+                $('myreply_content').hideTop();
+            }, function(error) {
+                hint('网络错误，请稍后重试~');
+                $('myreply_content').hideTop();
+                $('myreply_list').update({items:[{template:2}]});
+            });
+        }     
+        
+        function initMyMessage(json) {
+            var obj = JSON.parse(json);
+            if (obj.Variables.list == null || obj.Variables.list.length == 0) {
+                $('mymessage_list').update({items:[{template:3}]});
+            } else {
+                var newCount = 0;
+                var listjson = {items:[]};
+                for (var i = 0; i < obj.Variables.list.length; i++) {
+                    var message = obj.Variables.list[i];
+                    var isnew = '';
+                    if (message.isnew == '1') {
+                        newCount++;
+                        isnew = 'New ';
+                    }
+                    var itemjson = {
+                        template: 1,
+                        onclick: '$page.open("message.xml?touid=' + message.touid + '")',
+                        widgets: {
+                            isnew: {text: isnew},
+                            subject: {text: message.message},
+                            msgfrom: {text: 'From:<font color="#3E86D7">' + message.msgfrom + '</font>  To:<font color="#3E86D7">' + message.tousername + '</font>'},
+                            lastdateline: {text: dateToTime(message.lastdateline)},
+                            pmnum: {text: '共' + message.pmnum + '条'}
+                        }
+                    };
+                    listjson.items.push(itemjson);
+                }
+            	$('mymessage_list').update(listjson);
+                if (newCount > 0) {
+                    $('newcount_label').text = '(' + newCount + ')';
+                } else {
+                    $('newcount_label').text = '';
+                }
+            }
+        }
+        
+        function loadMyMessage(useCache) {                
+            var storage = $phone.localStorage();
+            if (useCache) {
+                var mymessaegeJson = storage.getItem('mymessage_json');
+                if (mymessaegeJson != null) {
+                    initMyMessage(mymessaegeJson);
+                }
+            }
+            $http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=mypm', function(json) {
+                storage.setItem('mymessage_json', json);
+                initMyMessage(json);
+                $('mymessage_content').hideTop();
+            }, function(error) {
+                hint('网络错误，请稍后重试~');
+                $('mymessage_content').hideTop();
+                $('mymessage_list').update({items:[{template:2}]});
+            });
+        }
+        
+        $page.onload = function() {
+        	var storage = $phone.localStorage();
+        	var profileJson = storage.getItem('user_profile_json');
+        	if (profileJson == null) {
+                var uid = storage.getItem('user_uid');
+            	var username = storage.getItem('user_username');
+        		$('user_head_img').src = BBS_HOME_URL + '/uc_server/avatar.php?uid=' + uid + '&size=middle';
+        		$('user_name_label').text = username;
+                $http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=profile', function(json) {
+                    storage.setItem('user_profile_json', json);
+        			initUserProfile(json);
+                });
+        	} else {
+        		initUserProfile(profileJson);
+                $http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=profile', function(json) {
+                    storage.setItem('user_profile_json', json);
+        			initUserProfile(json);
+                });
+        	}            
+
+        	$('mythread_list').update({items:[{template:0}]});
+        	$('myreply_list').update({items:[{template:0}]});        	
+            $('mymessage_list').update({items:[{template:0}]});
+            loadMyThread(true);            
+            loadMyReply(true);
+            loadMyMessage(false);
+        }
+    ]]>
+    </script>
+    <page include="common.js" style="background:#EFEFF4">
+        <title style="background:#303537">
+            <left>
+                <button type="icon" role="back" icon="btn_back_normal.png,btn_back_pressed.png" style="background:null,null;width:35;height:40" onclick="$page.close('$(\'slidingmenu\').open()');"/>
+            </left>
+            <center>
+                <label>个人中心</label>
+            </center>
+            <right>
+                <button style="color:white;width:80;font-size:12" onclick="logout();">退出</button>
+            </right>
+        </title>
+        <header>
+            <list>
+                <item selectable="false" style="col-width:100,*;col-valign:top,top">
+                    <col>
+                        <row><img id="user_head_img" default="noavatar_middle.gif" style="align:center;width:80;height:80"/></row>
+                    </col>
+                    <col>
+                        <row><label id="user_name_label" style="color:#333333;font-size:18"></label><label id="user_group_label" style="color:#2873C2;margin-left:10;font-size:14"></label></row>
+                        <row style="margin-top:5;">
+                            <label style="font-size:12;color:#5F585B" id="regdate_label"></label>
+                        </row>
+                        <row style="margin-top:5;">
+                            <label style="font-size:12;color:#5F585B" id="credits_label"></label>
+                        </row>
+                        <row>
+                            <label style="font-size:12;color:#5F585B" id="extcredits_label"></label>
+                        </row>
+                    </col>
+                </item>
+            </list>
+            <list type="toolbar">
+                <item style="background:#EFEFF4,#EFEFF4">
+                    <col>
+                        <row style="padding:8" onclick="showMyThread()"><label id="mythread_label" style="align:center;color:#2873C2;font-size:16;">我的帖子</label></row>
+                        <row id="mythread_row" style="height:2;background:#3E86D7"></row>
+                    </col>
+                    <col>
+                        <row style="padding:8" onclick="showMyReply()"><label id="myreply_label" style="align:center;color:#636363;font-size:16;">我的回复</label></row>
+                        <row id="myreply_row" style="display:hidden;height:2;background:#3E86D7"></row>
+                    </col>
+                    <col>
+                        <row style="padding:8" onclick="showMyMessage()">
+                            <label id="mymessage_label" style="align:center;color:#636363;font-size:16;">我的消息</label>
+                            <label id="newcount_label" style="align:center;color:red"></label>
+                        </row>
+                        <row id="mymessage_row" style="display:hidden;height:2;background:#3E86D7"></row>
+                    </col>
+                </item>
+            </list>
+        </header>
+        <contents id="contents">
+            <content id="mythread_content" draggable="true" ondragdown="loadMyThread(false)">
+                <list id="mythread_list" reuse="true" style="divider-border:1 #D9D9D9">
+                    <item style="background:#FFFFFF,#C2C2C2">
+                        <row><progress style="align:center"/><label style="align:center;color:#4A4A4A;font-size:14;margin-left:5">正在加载...</label></row>
+                    </item>
+                    <item style="background:#FFFFFF,#D7D7D7;">
+                        <row style="padding:0 5"><label style="color:#4A4A4A;font-size:16" reusekey="subject"></label></row>
+                        <row style="margin-top:5;padding:0 5">
+                            <label style="color:#9D9D9D;font-size:12;" reusekey="lastposter"></label>
+                            <label style="color:#999999;font-size:12;margin-left:10" reusekey="lastpost"></label>
+                            <icon style="align:right;margin-bottom:5" src="ic_clicked.png"/>
+                            <label style="color:#999999;font-size:12;align:right;margin-left:5" reusekey="views"></label>
+                            <icon style="align:right;margin-left:10;margin-bottom:5" src="ic_reply.png"/>
+                            <label style="color:#999999;font-size:12;align:right;margin-left:5" reusekey="replies"></label>
+                        </row>
+                    </item>
+                    <item style="background:#FFFFFF,#C2C2C2">
+                        <row><label style="align:center;color:#4A4A4A;font-size:14;margin-left:5"><![CDATA[数据加载失败，请<a href="javascript:loadMyThread(false);">点击重试</a>]]></label></row>
+                    </item>
+                    <item style="background:#FFFFFF,#C2C2C2">
+                        <row><label style="align:center;color:#4A4A4A;font-size:14;margin-left:5">暂无发表的帖子~</label></row>
+                    </item>
+                </list>
+            </content>
+            <content id="myreply_content" draggable="true" ondragdown="loadMyReply(false)">
+                <list id="myreply_list" reuse="true" style="divider-border:1 #D9D9D9">
+                    <item style="background:#FFFFFF,#C2C2C2">
+                        <row><progress style="align:center"/><label style="align:center;color:#4A4A4A;font-size:14;margin-left:5">正在加载...</label></row>
+                    </item>
+                    <item style="background:#FFFFFF,#D7D7D7;">
+                        <row style="padding:0 5"><label style="color:#4A4A4A;font-size:16" reusekey="subject"></label></row>
+                        <row style="margin-top:5;padding:0 5">
+                            <label style="color:#9D9D9D;font-size:12;" reusekey="lastposter"></label>
+                            <label style="color:#999999;font-size:12;margin-left:10" reusekey="lastpost"></label>
+                            <icon style="align:right;margin-bottom:5" src="ic_clicked.png"/>
+                            <label style="color:#999999;font-size:12;align:right;margin-left:5" reusekey="views"></label>
+                            <icon style="align:right;margin-left:10;margin-bottom:5" src="ic_reply.png"/>
+                            <label style="color:#999999;font-size:12;align:right;margin-left:5" reusekey="replies"></label>
+                        </row>
+                    </item>
+                    <item style="background:#FFFFFF,#C2C2C2">
+                        <row><label style="align:center;color:#4A4A4A;font-size:14;margin-left:5"><![CDATA[数据加载失败，请<a href="javascript:loadMyReply(false);">点击重试</a>]]></label></row>
+                    </item>
+                    <item style="background:#FFFFFF,#C2C2C2">
+                        <row><label style="align:center;color:#4A4A4A;font-size:14;margin-left:5">暂无回复的帖子~</label></row>
+                    </item>
+                </list>
+            </content>
+            <content id="mymessage_content" draggable="true" ondragdown="loadMyMessage(false)">
+                <list id="mymessage_list" reuse="true" style="divider-border:1 #D9D9D9">
+                    <item style="background:#FFFFFF,#C2C2C2">
+                        <row><progress style="align:center"/><label style="align:center;color:#4A4A4A;font-size:14;margin-left:5">正在加载...</label></row>
+                    </item>
+                    <item style="background:#FFFFFF,#D7D7D7;">
+                        <row style="padding:0 5">
+                            <label style="color:red;font-size:12;" reusekey="isnew"></label>
+                            <label style="color:#4A4A4A;font-size:14" reusekey="subject"></label>
+                        </row>
+                        <row style="margin-top:5;padding:0 5">
+                            <label style="color:#9D9D9D;font-size:12;" reusekey="msgfrom"></label>
+                            <label style="color:#999999;font-size:12;margin-left:10" reusekey="lastdateline"></label>
+                            <label style="color:#999999;font-size:12;align:right;" reusekey="pmnum"></label>
+                        </row>
+                    </item>
+                    <item style="background:#FFFFFF,#C2C2C2">
+                        <row><label style="align:center;color:#4A4A4A;font-size:14;margin-left:5"><![CDATA[数据加载失败，请<a href="javascript:loadMyMessage(false);">点击重试</a>]]></label></row>
+                    </item>
+                    <item style="background:#FFFFFF,#C2C2C2">
+                        <row><label style="align:center;color:#4A4A4A;font-size:14;margin-left:5">暂无消息~</label></row>
+                    </item>
+                </list>
+            </content>
+        </contents>
+    </page>
+</imag>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<imag>
+    <script>
+    <![CDATA[
+        function clearCache() {
+            if (confirm('清理缓存|确定要清理缓存吗？')) {
+                var storage = $phone.localStorage();
+            	storage.clear();
+        		hint('缓存清理成功');
+            }
+        }
+    ]]>
+    </script>
+    <page include="common.js" style="background:#F5F5F5">
+        <title style="background:#303537">
+            <left>
+                <button type="icon" role="back" icon="btn_back_normal.png,btn_back_pressed.png" style="background:null,null;width:35;height:40" onclick="$page.close('$(\'slidingmenu\').open()');"/>
+            </left>
+            <center>
+                <label>设置</label>
+            </center>
+        </title>
+        <content>
+            <list type="transparent" style="border:1 #D7D7D7;margin:10;padding:1">
+                <item style="divider-border:1 #D7D7D7;background:#FFFFFF,#D7D7D7" onclick="clearCache();">
+                    <row><label style="color:#4C4C4C">清理缓存</label></row>
+                </item>
+                <item style="background:#FFFFFF,#D7D7D7" onclick="$page.about();">
+                    <row><label style="color:#4C4C4C">关于</label></row>
+                </item>
+            </list>
+        </content>
+        <footer>
+            <row onclick="$page.open('http://www.imagapp.com', {target:'_browser'})"><label style="align:center;margin:10 0;color:#666666;font-size:12">Powered by </label><label style="color:blue;align:center;font-size:12">imagapp.com</label></row>
+        </footer>
+    </page>
+</imag>

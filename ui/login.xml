@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<imag>
+    <script>
+    <![CDATA[        
+        var seccodeon; 
+        var loginhash;
+        var formhash='e945eb82';
+        var sechash;
+        var BBS_HOME_URL = "http://weichunjie.cn/discuz"
+        
+        function userLogin() {
+            var username = $('username').value;
+            var password = $('password').value;
+            if (username == '') {
+                hint('用户名不能为空');
+                $('username').focus();
+                return;
+            }
+            if (password == '') {
+                hint('密码不能为空');
+                $('password').focus();
+                return;
+            }
+        				
+            var storage = $phone.localStorage();
+            var dlg = $page.waiting('用户登录|正在登录，请稍候..');
+            var loginUrl = BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=login&loginsubmit=yes&mobile=2&loginhash=' + loginhash;
+        	var postData = {fastloginfield:'username', username: username, password:password};
+        	if (seccodeon == 'yes') {
+        		postData['formhash'] = formhash; 
+        		postData['sechash'] = sechash; 
+        		postData['seccodeverify'] = $('seccodeverify').value;         		
+        		postData['questionid'] = '0';         		
+        		postData['answer'] = '';
+        		postData['loginsubmit'] = 'true'; 
+        	}
+        	$http.post(loginUrl, postData, function(data) {
+                if (data.indexOf('<root>') != -1) {
+                    $http.get(loginUrl, function(json) {
+                    	var obj = JSON.parse(json);
+                    	dlg.close();
+                        hint('登录成功');
+             			storage.setItem('user_uid', obj.Variables.member_uid);
+             			storage.setItem('user_username', obj.Variables.member_username);
+                        $page.close();
+                        return;
+                    }, function(error) {
+                    	dlg.close();
+                        hint('登录成功');
+                        $page.close();
+                    });
+                    storage.removeItem('login_seccodeon');
+                    storage.removeItem('login_loginhash');
+                    storage.removeItem('login_formhash');
+                    storage.removeItem('login_sechash');
+                } else {
+                    var obj = JSON.parse(data);
+                    if (obj.Variables.auth == null) {
+                		dlg.close();                     
+                        hint(obj.Message.messagestr);
+                    } else {        
+            			var storage = $phone.localStorage();
+             			storage.setItem('user_uid', obj.Variables.member_uid);
+             			storage.setItem('user_username', obj.Variables.member_username);        				
+        				var formhash = obj.Variables.formhash;
+        				$page.close('if (typeof setFormhash != "undefined") {setFormhash("' + formhash + '")}');
+                        hint('登录成功');
+                    }
+                }
+            }, function(error) {
+                dlg.close();
+                hint('网络错误，请稍后重试~');
+            });
+        }
+        
+        function loadSeccode() {            
+            $('seccodeimg').src = BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=seccode&action=update&mobile=2&sechash=' + sechash + '&rand=' + Math.random();
+        }
+        
+        $page.onload = function() {
+            var storage = $phone.localStorage();
+            seccodeon = storage.getItem('login_seccodeon');
+            if (seccodeon == 'yes') {
+                loginhash = storage.getItem('login_loginhash');
+                formhash = storage.getItem('login_formhash');
+                sechash = storage.getItem('login_sechash');
+                $('seccodeitem').css('display', 'block');
+                loadSeccode();
+            } else {
+            	checkSeccodeVerify();
+            }
+        }
+    ]]>
+    </script>
+    <page include="common.js" style="background:#EFEFF4">
+        <title style="background:#303537">
+            <left>
+                <button type="icon" role="back" icon="btn_back_normal.png,btn_back_pressed.png" style="background:null,null;width:35;height:40" onclick="$page.close('if ($(\'slidingmenu\')) $(\'slidingmenu\').open()');"/>
+            </left>
+            <center>
+                <label>用户登录</label>
+            </center>
+            <right>
+                <button style="margin-right:5;width:60" onclick="$page.open('register.xml')">注册</button>
+            </right>
+        </title>
+        <content style="background:#EFEFF4">
+            <form>
+                <list type="transparent" style="margin:10 20">
+                    <item style="padding:10 10 5 10;col-width:60,*">
+                        <col>
+                            <row><label>帐号</label></row>
+                        </col>
+                        <col>
+                            <row><input type="text" id="username" placeholder="请输入用户名" style="align:left;background:null,null;font-size:16;padding:0 5"/></row>
+                        </col>
+                    </item>
+                    <item style="padding:0;col-width:1,*,1;col-valign:bottom,bottom,bottom">
+                        <col>
+                            <row style="background:#3E86D7;height:3"></row>
+                        </col>
+                        <col>
+                            <row style="background:#3E86D7;height:1"></row>
+                        </col>
+                        <col>
+                            <row style="background:#3E86D7;height:3"></row>
+                        </col>
+                    </item>
+                    <item style="padding:10 10 5 10;col-width:60,*">
+                        <col>
+                            <row><label>密码</label></row>
+                        </col>
+                        <col>
+                            <row><input type="password" id="password" placeholder="请输入密码" style="align:left;background:null,null;font-size:16;padding:0 5"/></row>
+                        </col>
+                    </item>
+                    <item style="padding:0;col-width:1,*,1;col-valign:bottom,bottom,bottom">
+                        <col>
+                            <row style="background:#3E86D7;height:3"></row>
+                        </col>
+                        <col>
+                            <row style="background:#3E86D7;height:1"></row>
+                        </col>
+                        <col>
+                            <row style="background:#3E86D7;height:3"></row>
+                        </col>
+                    </item>
+                    <item id="seccodeitem" style="display:none;padding:10 10 5 10;col-width:60,*,100">
+                        <col>
+                            <row><label>验证码</label></row>
+                        </col>
+                        <col>
+                            <row><input type="text" id="seccodeverify" placeholder="请输入验证码" style="align:left;background:null,null;font-size:16;padding:0 5"/></row>
+                        </col>
+                        <col>
+                            <row><img id="seccodeimg" style="width:100;height:50" onclick="loadSeccode()"/></row>
+                        </col>
+                    </item>
+                </list>
+                <list type="toolbar" style="margin-top:20;padding:10 20;">
+                    <item style="background:#3E86D7,#2873C2;padding:10;corner-radius:4" onclick="userLogin();">
+                        <row><label style="color:white;align:center;font-size:18">登  录</label></row>
+                    </item>
+                </list>
+            </form>
+        </content>
+    </page>
+</imag>
+
+

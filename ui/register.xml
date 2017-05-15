@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<imag>
+    <script>
+    <![CDATA[
+        var BBS_HOME_URL = "http://weichunjie.cn/discuz"
+        $page.onload = function() {
+            $('web').onload = function() {
+                var script = 'var css = ".header,.footer{ display:none }";' +
+                    'head = document.getElementsByTagName("head")[0];' +
+                    'style = document.createElement("style");' +
+                    'style.type = "text/css";' +
+                    'style.appendChild(document.createTextNode(css));' +
+                    'head.appendChild(style);';
+                $('web').exec(script);
+            }
+        	$('web').src = BBS_HOME_URL + '/member.php?mod=register';
+        }
+    ]]>
+    </script>
+    <page include="common.js" style="background:#EFEFF4">
+        <title style="background:#303537">
+            <left>
+                <button type="icon" role="back" icon="btn_back_normal.png,btn_back_pressed.png" style="background:null,null;width:35;height:40" onclick="$page.close();"/>
+            </left>
+            <center>
+                <label>用户注册</label>
+            </center>
+        </title>
+        <content>
+        	<web id="web" progress="true">
+            </web>
+        </content>
+    </page>
+</imag>

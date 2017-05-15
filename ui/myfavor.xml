@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<imag>
+    <script>
+    <![CDATA[
+        var formhash='e945eb82';
+        var BBS_HOME_URL = "http://weichunjie.cn/discuz"
+        function showForumContent() {
+            $('favorforum_label').css('color', '#2873C2');
+            $('favorthread_label').css('color', '#636363');
+            $('favorforum_row').css('display', 'block');
+            $('favorthread_row').css('display', 'hidden');
+            $('contents').showContent(0);
+        }
+        
+        function showThreadContent() {
+            $('favorforum_label').css('color', '#636363');
+            $('favorthread_label').css('color', '#2873C2');
+            $('favorforum_row').css('display', 'hidden');
+            $('favorthread_row').css('display', 'block');
+            $('contents').showContent(1);
+        }
+        
+        function delFavorForum(favid) {
+        	if (!confirm('确定删除收藏的版块？')) {
+        		return;
+        	}
+        	var url = BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=favforum&op=delete&favid=' + favid + '&inajax=1';        
+        	$http.post(url, {
+        		deletesubmit: 'true',
+                deletesubmitbtn: 'true',
+        		formhash: formhash
+        	}, function(json) {
+                var obj = JSON.parse(json);
+                if (obj.Message.messageval == 'do_success') {
+					hint('版块收藏删除成功');
+        			loadFavorForum();
+                } else {
+                    hint(obj.Message.messagestr);
+                }
+            }, function(error) {
+                hint('版块收藏删除失败，网络错误!~');
+            });
+        }
+        
+        function delFavorThread(favid) {
+        	if (!confirm('确定删除收藏的帖子？')) {
+        		return;
+        	}
+        	var url = BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=favforum&op=delete&favid=' + favid + '&inajax=1';        
+        	$http.post(url, {
+        		deletesubmit: 'true',
+                deletesubmitbtn: 'true',
+        		formhash: formhash
+        	}, function(json) {
+                var obj = JSON.parse(json);
+                if (obj.Message.messageval == 'do_success') {
+					hint('帖子收藏删除成功');
+        			loadFavorThread();
+                } else {
+                    hint(obj.Message.messagestr);
+                }
+            }, function(error) {
+                hint('帖子收藏删除失败，网络错误!~');
+            });
+        }
+        
+        function loadFavorForum() {
+        	$http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=myfavforum', function(json) {
+        		var obj = JSON.parse(json);
+				formhash = obj.Variables.formhash;
+            	if (obj.Variables.list == null || obj.Variables.list.length == 0) {
+                	$('favorfourm_list').update({items:[{template:2}]});
+               	} else {
+               		var listjson = {items:[]};
+                	for (var i = 0; i < obj.Variables.list.length; i++) {
+                    	var forum = obj.Variables.list[i];
+                    	var itemjson = {
+                        	template: 1,
+                        	onclick: '$page.open("forum.xml?fid=' + forum.id + '&fname=' + encodeURIComponent(forum.title) + '")',
+                        	widgets: {
+                        		title: {text: forum.title},
+                            	delbtn: {text: '删除', onclick: 'delFavorForum("' + forum.favid + '")'}
+                			}
+                		};
+                		listjson.items.push(itemjson);
+                	}
+                	$('favorfourm_list').update(listjson);
+                }
+        	}, function(error) {
+        		$('favorfourm_list').update({items:[{template:2}]});
+        	});
+      	}
+        
+        function loadFavorThread() {
+        	$http.get(BBS_HOME_URL + '/source/plugin/mobile/mobile.php?version=1&module=myfavthread', function(json) {
+        		var obj = JSON.parse(json);
+				formhash = obj.Variables.formhash;
+            	if (obj.Variables.list == null || obj.Variables.list.length == 0) {
+                    $('favorthread_list').update({items:[{template:2}]});
+                } else {
+                    var listjson = {items:[]};
+                    for (var i = 0; i < obj.Variables.list.length; i++) {
+                        var thread = obj.Variables.list[i];
+                        var itemjson = {
+                            template: 1,
+                            onclick: '$page.open("thread.xml?tid=' + thread.id + '&fname=' + encodeURIComponent('我的收藏') + '")',
+                            widgets: {
+                           		title: {text: thread.title},
+                            	author: {text: thread.author},
+                                dateline: {text: thread.dateline.replace('&nbsp;', ' ')},
+                            	delbtn: {text: '删除', onclick: 'delFavorThread("' + thread.favid + '")'}
+                    		}
+                		};
+                		listjson.items.push(itemjson);
+            		}
+                    $('favorthread_list').update(listjson);
+        		}
+        	}, function(error) {
+        		$('favorthread_list').update({items:[{template:2}]});
+        	});
+      	}
+        
+        $page.onload = function() {
+        	$('favorfourm_list').update({items:[{template:0}]});
+        	$('favorthread_list').update({items:[{template:0}]});
+        	loadFavorForum();
+            loadFavorThread();
+        }
+    ]]>
+    </script>
+    <page include="common.js" style="background:white">
+        <title style="background:#303537">
+            <left>
+                <button type="icon" role="back" icon="btn_back_normal.png,btn_back_pressed.png" style="background:null,null;width:35;height:40" onclick="$page.close('$(\'slidingmenu\').open()');"/>
+            </left>
+            <center>
+                <label id="fname_label">我的收藏</label>
+            </center>
+        </title>
+        <header>
+            <list type="toolbar">
+                <item style="background:#EFEFF4,#EFEFF4">
+                    <col>
+                        <row style="padding:8" onclick="showForumContent()"><label id="favorforum_label" style="align:center;color:#2873C2;font-size:16;">收藏的版块</label></row>
+                        <row id="favorforum_row" style="height:2;background:#3E86D7"></row>
+                    </col>
+                    <col>
+                        <row style="padding:8" onclick="showThreadContent()"><label id="favorthread_label" style="align:center;color:#636363;font-size:16;">收藏的帖子</label></row>
+                        <row id="favorthread_row" style="display:hidden;height:2;background:#3E86D7"></row>
+                    </col>
+                </item>
+            </list>
+        </header>
+        <contents id="contents">
+            <content>
+                <list id="favorfourm_list" reuse="true">
+                    <item style="background:#FFFFFF,#C2C2C2">
+                    	<row><progress style="align:center"/><label style="align:center;color:#4A4A4A;font-size:14;margin-left:5">正在加载...</label></row>
+                    </item>
+                    <item style="background:#FFFFFF,#D7D7D7;col-width:*,60">
+                  		<col>  	
+                            <row><label style="color:#4A4A4A" reusekey="title"></label></row>
+                        </col>
+                        <col>
+                            <row><button style="color:white;width:55;height:35;background:#ED4D3A,#F3867A;font-size:13" reusekey="delbtn"></button></row>
+                        </col>
+                    </item>
+                    <item>
+                		<row style="margin:20 0 40 0"><icon src="nofavorite_loading.png" style="align:center"/></row>
+                    </item>
+                </list>
+            </content>
+            <content>
+                <list id="favorthread_list" reuse="true">
+                    <item style="background:#FFFFFF,#C2C2C2">
+                    	<row><progress style="align:center"/><label style="align:center;color:#4A4A4A;font-size:14;margin-left:5">正在加载...</label></row>
+                    </item>
+                    <item style="background:#FFFFFF,#D7D7D7;col-width:*,60">
+                        <col>  	
+                            <row style="padding:0 5"><label style="color:#4A4A4A;font-size:16" reusekey="title"></label></row>
+                            <row style="margin-top:5;padding:0 5">
+                                <label style="color:#9D9D9D;font-size:12;" reusekey="author"></label>
+                                <label style="color:#999999;font-size:12;margin-left:10" reusekey="dateline"></label>
+                            </row>
+                        </col>
+                        <col>
+                            <row><button style="color:white;width:55;height:35;background:#ED4D3A,#F3867A;font-size:13" reusekey="delbtn"></button></row>
+                        </col>
+                    </item>
+                    <item>
+                		<row style="margin:20 0 40 0"><icon src="nofavorite_loading.png" style="align:center"/></row>
+                    </item>
+                </list>
+            </content>
+        </contents>
+    </page>
+</imag>
