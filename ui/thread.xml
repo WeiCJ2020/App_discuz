@@ -14,6 +14,29 @@
             return html.replace(/'/g, "\\'").replace(/\\\\'/g, "\\\\\\'");
         }
 
+        String.prototype.format = function(args) {
+            var result = this;
+            if (arguments.length > 0) {
+                if (arguments.length == 1 && typeof (args) == "object") {
+                    for (var key in args) {
+                        if(args[key]!=undefined){
+                            var reg = new RegExp("({" + key + "})", "g");
+                            result = result.replace(reg, args[key]);
+                        }
+                    }
+                }
+                else {
+                    for (var i = 0; i < arguments.length; i++) {
+                        if (arguments[i] != undefined) {
+                            //var reg = new RegExp("({[" + i + "]})", "g");//这个在索引大于9时会有问题，谢谢何以笙箫的指出
+        　　　　　　　　　　　　var reg= new RegExp("({)" + i + "(})", "g");
+                            result = result.replace(reg, arguments[i]);
+                        }
+                    }
+                }
+            }
+            return result;
+        }
         function downloadAttach(url) {
         	$http.download(url);
         }
@@ -59,10 +82,14 @@
         function loadPosts(obj) {
         	var postlist = obj.Variables.postlist;
             var str = JSON.stringify(postlist);
-            reply1 = postlist[1];
-            alert(str+'\n\n'+reply1.author);
-            str1 = reply1.author+'\n'+reply1.dateline+'\n'+reply1.message;
-            changeLabel('reply1',str1);
+            if (str) {
+                reply1 = postlist[1];
+                alert(str+'\n\n'+reply1.author);
+                str1 = $C("<label id='reply1' style='color:blue;font-size:14'>"+reply1.author+'\n'+reply1.dateline+'\n'+reply1.message+"</label>");
+                str2 = reply1.author+'\n'+reply1.dateline;
+                $('replylist').add(str1);
+                document.getElementById("replylist").innerHTML(str2);
+            }
            	var html = '';
             if (page == 1 && postlist.length <= 1) {
         		html += '<div class="post_no">暂无回帖~</div>';
@@ -218,7 +245,12 @@
             <label style="align:center;margin-left:5;font-size:16" id="subject1"></label>
             <label style="align:center;margin-left:5;font-size:16" id="author1"></label>
             <label style="align:center;margin-left:5;font-size:16" id="content1"></label>
-            <label style="align:center;margin-left:5;font-size:16" id="reply1"></label>
+            <web>
+                <![CDATA[
+                <p id = "replylist"></p>
+                ]]>
+            </web>
+
             <bottom style="display:display">
                 <row style="padding:10;background:#FFFFFF,#D7D7D7;" onclick="loadMorePost();">
                     <progress id="thread_progress" style="align:center;display:none"/>
